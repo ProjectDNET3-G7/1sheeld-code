@@ -1,0 +1,75 @@
+#define CUSTOM_SETTINGS
+#define INCLUDE_DATA_LOGGER_SHIELD
+#define INCLUDE_GPS_SHIELD
+#define INCLUDE_SMS_SHIELD
+
+#include <OneSheeld.h>
+
+float longitude = GPS.getLongitude();
+float latitude = GPS.getLatitude();
+int ledPin = 13;
+int count = 0;
+boolean inMotion = false;
+boolean immobilized = true;
+
+void setup() {
+  OneSheeld.begin();
+  Logger.stop();
+  pinMode(ledPin,OUTPUT);
+  
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  if(!inMotion)
+  {
+    if(!GPS.isInRange(latitude, longitude,20) && immobilized)
+    {
+      inMotion = true;
+      SMS.send("0861231234","Your vehicle has been moved");
+    }
+  }
+  else
+  {
+    GPS.setOnValueChange(&
+  }
+
+
+  
+          if(GPS.isInRange(latitude, longitude,100))
+          {
+            if(!isInRange)
+            {
+              digitalWrite(ledPin,HIGH);
+              //SMS.send("+353876762250","Smartphone is In Range.");
+              isInRange = true;
+            }
+            
+          }
+          else
+          {
+            if(isInRange)
+            {
+              digitalWrite(ledPin,LOW);
+              //SMS.send("+353876762250","Smartphone is not In Range.");
+              isInRange = false;
+            }
+          }
+}
+
+void writeToLog()
+{
+  longitude = GPS.getLongitude();
+  latitude = GPS.getLatitude();
+  Logger.start("GPS Coords");
+  Logger.add("Latitude",latitude);
+  Logger.add("Longitude",longitude);
+  Logger.log();
+  count++;
+  if(count==20)
+  {
+    Logger.stop();
+    count = 0;
+  }
+}
+
