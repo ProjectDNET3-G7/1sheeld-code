@@ -1,0 +1,33 @@
+#define CUSTOM_SETTINGS
+#define INCLUDE_INTERNET_SHIELD
+#define INCLUDE_GPS_SHIELD
+
+#include <OneSheeld.h>
+
+float longitude;
+float latitude;
+HttpRequest request ("https://api.thingspeak.com/update");
+char charSensor[10];
+unsigned long myChannelNumber = 228392;
+const char *myWriteAPIKey = "KY6FGVBF9MNSM8B0";
+
+void setup()
+{
+  OneSheeld.begin();
+  request.addParameter("api_key","KY6FGVBF9MNSM8B0"); // add your API key
+}
+ 
+void loop()
+{
+    longitude = GPS.getLongitude();
+    latitude = GPS.getLatitude();
+    //dtostrf(longitude, 9, 5, charSensor);
+    //request.addParameter("field1",charSensor);
+    //Internet.performPost(request);
+
+    
+    dtostrf(latitude, 9, 5, charSensor);
+    request.addParameter("field2",charSensor);
+    Internet.performPost(request);
+    delay(20000);
+}
