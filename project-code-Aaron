@@ -1,0 +1,152 @@
+#define CUSTOM_SETTINGS
+#define INCLUDE_GPS_SHIELD
+#define INCLUDE_SMS_SHIELD
+#define INCLUDE_INTERNET_SHIELD
+
+#include <OneSheeld.h>
+
+float longitude = GPS.getLongitude();
+HttpRequest request ("https://api.thingspeak.com/update");
+char charSensor[10];
+unsigned long myChannelNumber = 228392;
+const char *myWriteAPIKey = "KY6FGVBF9MNSM8B0";
+float latitude = GPS.getLatitude();
+int ledPin = 13;
+int count = 0;
+boolean inMotion = false;
+boolean locked = true;
+
+void setup() {
+  OneSheeld.begin();
+  pinMode(ledPin,OUTPUT);
+}
+
+//when locked LED is lit
+
+
+void loop() {
+
+if(stolen)
+//internet check value
+  if(immobilized)
+  NFC;
+  
+  
+  else
+  &trackVehicle;
+  delay(20000);
+
+  &checkImmobilize;
+  
+  
+
+else if(locked)
+
+if(!GPS.isInRange(latitude, longitude,20))
+    {
+      inMotion = true;
+    }
+    
+  if(moving)
+  notify();
+  camera();
+  setStolen();
+
+ 
+  
+  else
+  NFC();
+
+else
+
+if(!GPS.isInRange(latitude, longitude,20))
+    {
+      inMotion = true;
+    }
+
+  if(moving)
+  &trackVehicle();
+   delay(20000);
+
+  
+  else
+    if(count == 3)
+    lock();
+
+
+
+
+/*  if(!inMotion)
+  {
+    if(!GPS.isInRange(latitude, longitude,20) && immobilized)
+    {
+      inMotion = true;
+      SMS.send("0861231234","Your vehicle has been moved");
+    }
+  }
+  else
+  {
+    GPS.setOnValueChange(&trackVehicle)
+  }
+
+
+  
+  if(GPS.isInRange(latitude, longitude,100))
+  {
+    if(!isInRange)
+    {
+      digitalWrite(ledPin,HIGH);
+      //SMS.send("0861231234","Smartphone is In Range.");
+      isInRange = true;
+    }
+
+  }
+  else
+  {
+    if(isInRange)
+    {
+      digitalWrite(ledPin,LOW);
+      //SMS.send("0861231234","Smartphone is not In Range.");
+      isInRange = false;
+    }
+  }
+     delay(20000);
+*/
+}
+
+void trackVehicle()
+{
+  longitude = GPS.getLongitude();
+  latitude = GPS.getLatitude();
+  dtostrf(longitude, 9, 5, charSensor);
+  request.addParameter("field1",charSensor);
+  dtostrf(latitude, 9, 5, charSensor);
+  request.addParameter("field2",charSensor);
+   Internet.performPost(request);
+ 
+}
+
+float longitude;
+float latitude;
+
+
+void setup()
+{
+  OneSheeld.begin();
+  request.addParameter("api_key","KY6FGVBF9MNSM8B0"); // add your API key
+}
+ 
+void loop()
+{
+    longitude = GPS.getLongitude();
+    latitude = GPS.getLatitude();
+    //dtostrf(longitude, 9, 5, charSensor);
+    //request.addParameter("field1",charSensor);
+    //Internet.performPost(request);
+
+    
+    dtostrf(latitude, 9, 5, charSensor);
+    request.addParameter("field2",charSensor);
+    Internet.performPost(request);
+    delay(20000);
+}
