@@ -2,23 +2,35 @@
 #define INCLUDE_GPS_SHIELD
 #define INCLUDE_SMS_SHIELD
 #define INCLUDE_INTERNET_SHIELD
+#define INCLUDE_CAMERA_SHIELD
+#define INCLUDE_NFC_SHIELD
 
 #include <OneSheeld.h>
 
 float longitude = GPS.getLongitude();
-HttpRequest request ("https://api.thingspeak.com/update");
-char charSensor[10];
+float latitude = GPS.getLatitude();
+
+HttpRequest immobRequest("https://api.thingspeak.com/channels/228392/fields/3/last.txt"); //For checking the immobilization boolean (0,1)
+HttpRequest request("https://api.thingspeak.com/update"); //This and the following 3 lines are for writing the longitude and latitude to thingspeak channel
 unsigned long myChannelNumber = 228392;
 const char *myWriteAPIKey = "KY6FGVBF9MNSM8B0";
-float latitude = GPS.getLatitude();
+char charSensor[10];
+
+boolean moving = false; //Not sure if we care about whether or not the vehicle is moving???
+boolean locked = true; //Vehicle starts off locked as that is the state a vehicle would most often be in
+boolean stolen = false; //Starts off not stolen (obviously)
+//There is a boolean held on the thingspeak channel that controls the immobilization remotely (simulated remote shutdown)
+
+NFCTag &myTag = NULL;
+
 int ledPin = 13;
 int count = 0;
-boolean inMotion = false;
-boolean locked = true;
+
 
 void setup() {
-  OneSheeld.begin();
-  pinMode(ledPin,OUTPUT);
+	OneSheeld.begin();
+  request.addParameter("api_key","KY6FGVBF9MNSM8B0");
+	pinMode(ledPin, OUTPUT);
 }
 
 //when locked LED is lit
@@ -26,127 +38,94 @@ void setup() {
 
 void loop() {
 
-if(stolen)
-//internet check value
-  if(immobilized)
-  NFC;
-  
-  
-  else
-  &trackVehicle;
-  delay(20000);
-
-  &checkImmobilize;
-  
-  
-
-else if(locked)
-
-if(!GPS.isInRange(latitude, longitude,20))
-    {
-      inMotion = true;
-    }
-    
-  if(moving)
-  notify();
-  camera();
-  setStolen();
-
- 
-  
-  else
-  NFC();
-
-else
-
-if(!GPS.isInRange(latitude, longitude,20))
-    {
-      inMotion = true;
-    }
-
-  if(moving)
-  &trackVehicle();
-   delay(20000);
-
-  
-  else
-    if(count == 3)
-    lock();
-
-
-
-
-/*  if(!inMotion)
-  {
-    if(!GPS.isInRange(latitude, longitude,20) && immobilized)
-    {
-      inMotion = true;
-      SMS.send("0861231234","Your vehicle has been moved");
-    }
-  }
-  else
-  {
-    GPS.setOnValueChange(&trackVehicle)
-  }
-
-
-  
-  if(GPS.isInRange(latitude, longitude,100))
-  {
-    if(!isInRange)
-    {
-      digitalWrite(ledPin,HIGH);
-      //SMS.send("0861231234","Smartphone is In Range.");
-      isInRange = true;
-    }
-
-  }
-  else
-  {
-    if(isInRange)
-    {
-      digitalWrite(ledPin,LOW);
-      //SMS.send("0861231234","Smartphone is not In Range.");
-      isInRange = false;
-    }
-  }
-     delay(20000);
-*/
+if(NFC.isNewTagScanned() && myTag == NULL) //Once off, set the NFC tag of your "key" (Student ID, etc)
+{
+  myTag = NFC.getLastTag();
 }
+
+
+if (stolen)
+{
+  if (immobilized)
+  {
+    if(NFC.isNewTagScanned()) //Check if the new NFC tag scanned is the same as your "key". If it is, disable the immobilizer
+    {
+      NFCTag &currentTag = NFC.getLastTag();
+      if(currentTag.getId() == myTag.getId()) //This will unlock the immobilizer and the vehicle and perform an update of the location of the vehicle
+      {
+        locked = false;
+        request.addParameter("field3",0);
+        Internet.performPost(request);
+        request.deleteParameters(); //Required so as not to update the immobilized value while performing tracking
+        request.addParameter("api_key","KY6FGVBF9MNSM8B0"); //Reapply the api_key to the HttpRequest to be able to write the coordinates while tracking
+      }
+    }
+  }
+  else
+  {
+    if(Internet.performGet(immobRequest)) //Checks the value of the immobilizer boolean (0,1) on the thingspeak and simulates the shutdown of the vehicle
+    {
+      //Simulated shutdown of vehicle and be unable to restart it without the assigned "key" (NFC tag)
+    }
+    trackVehicle();
+    delay(20000);
+  }
+  
+  
+}
+
+else if (locked)
+{
+  if (!GPS.isInRange(latitude, longitude, 20))
+  {
+    moving = true;
+    carStolen();
+  }
+  else
+  {
+    NFCTag &currentTag = NFC.getLastTag();
+    if(currentTag.getId() == myTag.getId())
+    {
+      locked = false;
+    }
+  }
+}
+else
+{
+  if (!GPS.isInRange(latitude, longitude, 20))
+  {
+    moving = true;
+    trackVehicle();
+    delay(20000);
+  }
+  else
+  {
+    count++;
+    if (count == 3)
+    {
+      locked = true;
+      count = 0;
+    }
+  }
+}
+
+} //END OF loop()
+
+void carStolen()
+{
+Camera.frontCapture();
+SMS.send("0861231234","Your car has been stolen. The security company has been informed. You can track your car on our website //hhtp:www"); //Notify car owner
+SMS.send("0867897890","Car belonging to XXX has been stolen. It is a blah blah car."); // Notify emergency line
+stolen = true;
+} //END OF carStolen()
 
 void trackVehicle()
 {
-  longitude = GPS.getLongitude();
-  latitude = GPS.getLatitude();
-  dtostrf(longitude, 9, 5, charSensor);
-  request.addParameter("field1",charSensor);
-  dtostrf(latitude, 9, 5, charSensor);
-  request.addParameter("field2",charSensor);
-   Internet.performPost(request);
- 
-}
-
-float longitude;
-float latitude;
-
-
-void setup()
-{
-  OneSheeld.begin();
-  request.addParameter("api_key","KY6FGVBF9MNSM8B0"); // add your API key
-}
- 
-void loop()
-{
-    longitude = GPS.getLongitude();
-    latitude = GPS.getLatitude();
-    //dtostrf(longitude, 9, 5, charSensor);
-    //request.addParameter("field1",charSensor);
-    //Internet.performPost(request);
-
-    
-    dtostrf(latitude, 9, 5, charSensor);
-    request.addParameter("field2",charSensor);
-    Internet.performPost(request);
-    delay(20000);
-}
+	longitude = GPS.getLongitude();
+	latitude = GPS.getLatitude();
+	dtostrf(longitude, 9, 5, charSensor);
+	request.addParameter("field1", charSensor);
+	dtostrf(latitude, 9, 5, charSensor);
+	request.addParameter("field2", charSensor);
+	Internet.performPost(request);
+} //END OF trackVehicle()
