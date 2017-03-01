@@ -20,17 +20,18 @@ boolean moving = false; //Not sure if we care about whether or not the vehicle i
 boolean locked = true; //Vehicle starts off locked as that is the state a vehicle would most often be in
 boolean stolen = false; //Starts off not stolen (obviously)
 //There is a boolean held on the thingspeak channel that controls the immobilization remotely (simulated remote shutdown)
+boolean tagSet = false;
 
-NFCTag &myTag = NULL;
+NFCTag &myTag = NFC.getLastTag();
 
 int ledPin = 13;
 int count = 0;
 
 
 void setup() {
-	OneSheeld.begin();
+  OneSheeld.begin();
   request.addParameter("api_key","KY6FGVBF9MNSM8B0");
-	pinMode(ledPin, OUTPUT);
+  pinMode(ledPin, OUTPUT);
 }
 
 //when locked LED is lit
@@ -38,7 +39,7 @@ void setup() {
 
 void loop() {
 
-if(NFC.isNewTagScanned() && myTag == NULL) //Once off, set the NFC tag of your "key" (Student ID, etc)
+if(NFC.isNewTagScanned() && !tagSet) //Once off, set the NFC tag of your "key" (Student ID, etc)
 {
   myTag = NFC.getLastTag();
 }
@@ -46,7 +47,7 @@ if(NFC.isNewTagScanned() && myTag == NULL) //Once off, set the NFC tag of your "
 
 if (stolen)
 {
-  if (immobilized)
+  if (Internet.performGet(immobRequest))
   {
     if(NFC.isNewTagScanned()) //Check if the new NFC tag scanned is the same as your "key". If it is, disable the immobilizer
     {
@@ -121,11 +122,11 @@ stolen = true;
 
 void trackVehicle()
 {
-	longitude = GPS.getLongitude();
-	latitude = GPS.getLatitude();
-	dtostrf(longitude, 9, 5, charSensor);
-	request.addParameter("field1", charSensor);
-	dtostrf(latitude, 9, 5, charSensor);
-	request.addParameter("field2", charSensor);
-	Internet.performPost(request);
+  longitude = GPS.getLongitude();
+  latitude = GPS.getLatitude();
+  dtostrf(longitude, 9, 5, charSensor);
+  request.addParameter("field1", charSensor);
+  dtostrf(latitude, 9, 5, charSensor);
+  request.addParameter("field2", charSensor);
+  Internet.performPost(request);
 } //END OF trackVehicle()
