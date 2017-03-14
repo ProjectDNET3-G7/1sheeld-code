@@ -1,0 +1,74 @@
+#define CUSTOM_SETTINGS
+#define INCLUDE_INTERNET_SHIELD
+
+#include <OneSheeld.h>
+
+HttpRequest immobRequest("https://api.thingspeak.com/channels/228392/fields/3/last.txt"); //For checking the immobilization boolean (0,1)
+HttpRequest request("https://api.thingspeak.com/update"); //This and the following 3 lines are for writing the longitude and latitude to thingspeak channel
+unsigned long myChannelNumber = 228392;
+const char *myWriteAPIKey = "KY6FGVBF9MNSM8B0";
+char charSensor[11];
+char url[100];
+
+boolean moving = false; //Not sure if we care about whether or not the vehicle is moving???
+boolean locked = true; //Vehicle starts off locked as that is the state a vehicle would most often be in
+boolean stolen = false; //Starts off not stolen (obviously)
+//There is a boolean held on the thingspeak channel that controls the immobilization remotely (simulated remote shutdown)
+
+
+
+int lockPin = 13;
+int movePin = 12;
+int stolenPin = 11;
+int switchPin = 2;
+int switchState = 0;
+int count = 0;
+
+int immob = 0;
+
+
+void setup() {
+  OneSheeld.begin();
+  request.addParameter("api_key","KY6FGVBF9MNSM8B0");
+  pinMode(lockPin, OUTPUT);
+  pinMode(movePin, OUTPUT);
+  pinMode(stolenPin, OUTPUT);
+  pinMode(switchPin, INPUT);
+  digitalWrite(13, HIGH);
+}
+
+//when locked LED is lit
+
+
+void loop() {
+if (true) //stolen)
+{
+  immob = Internet.performGet(immobRequest);
+  if (switchState)
+  {
+    switchState = HIGH;
+    if(switchState == HIGH) //Check for the button press (Simulated car key as we had no access to NFC tags that would work
+    {
+      digitalWrite(13, LOW);
+    }
+    digitalWrite(12, HIGH);
+    delay(1000);
+    digitalWrite(12, LOW);
+    delay(1000);
+  }
+  else
+  {
+    if(immob) //Checks the value of the immobilizer boolean (0,1) on the thingspeak and simulates the shutdown of the vehicle
+    {
+      digitalWrite(13, LOW);
+      delay(500);
+      digitalWrite(13, HIGH);
+      delay(500);
+      //Simulated shutdown of vehicle and be unable to restart it without the assigned "key" (Button press)
+    }
+    digitalWrite(11, HIGH);
+    delay(1000);
+    digitalWrite(11, LOW);
+    delay(1000);
+  }
+}
