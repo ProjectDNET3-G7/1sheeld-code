@@ -49,6 +49,7 @@ void setup() {
   pinMode(delayRequestPin, OUTPUT);
   pinMode(delayImmobPin, OUTPUT);
   pinMode(keyButPin, INPUT);
+  digitalWrite(lockedPin, HIGH);
 }
 
 
