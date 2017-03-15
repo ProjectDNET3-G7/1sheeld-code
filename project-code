@@ -21,11 +21,11 @@ boolean locked = true; //Vehicle starts off locked as that is the state a vehicl
 boolean stolen = false; //Starts off not stolen (obviously)
 //There is a boolean held on the thingspeak channel that controls the immobilization remotely (simulated remote shutdown)
 boolean tagSet = false;
-
+int switchState = 0;
 
 int ledPin = 13;
 int count = 0;
-
+int immob = 0;
 
 void setup() {
   OneSheeld.begin();
@@ -38,10 +38,6 @@ void setup() {
 
 void loop() {
 
-if(NFC.isNewTagScanned() && !tagSet) //Once off, set the NFC tag of your "key" (Student ID, etc)
-{
-  myTag = NFC.getLastTag();
-}
 
 
 if (stolen)
@@ -79,8 +75,7 @@ else if (locked)
   }
   else
   {
-    NFCTag &currentTag = NFC.getLastTag();
-    if(currentTag.getId() == myTag.getId())
+    if(switchState)
     {
       locked = false;
     }
