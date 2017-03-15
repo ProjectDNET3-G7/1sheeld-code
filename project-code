@@ -3,6 +3,7 @@
 #define INCLUDE_SMS_SHIELD
 #define INCLUDE_INTERNET_SHIELD
 #define INCLUDE_CAMERA_SHIELD
+#define INCLUDE_TERMINAL_SHIELD
 
 #include <OneSheeld.h>
 
@@ -10,27 +11,34 @@ float longitude = GPS.getLongitude();
 float latitude = GPS.getLatitude();
 
 HttpRequest immobRequest("https://api.thingspeak.com/channels/228392/fields/3/last.json"); //For checking the immobilization boolean (0,1)
-oneSheeld.getResponse.setOnJsonResponse(&immobRequestSuccess);
-oneSheeld.getResponse[0]["field3"].query( );
+
 HttpRequest request("https://api.thingspeak.com/update"); //This and the following 3 lines are for writing the longitude and latitude to thingspeak channel
 const char *myWriteAPIKey = "KY6FGVBF9MNSM8B0";
 char charSensor[11];
 
 boolean moving = false; //Not sure if we care about whether or not the vehicle is moving???
 boolean locked = true; //Vehicle starts off locked as that is the state a vehicle would most often be in
-boolean stolen = false; //Starts off not stolen (obviously)
+boolean stolen = true; //Starts off not stolen (obviously)
 //There is a boolean held on the thingspeak channel that controls the immobilization remotely (simulated remote shutdown)
 boolean tagSet = false;
 int switchState = 0;
 
 int ledPin = 13;
+int keyLED = 12;
+int keyPin = 2;
 int count = 0;
-int immob = 0;
+const int autoLockTime = 3;
+int immob = 1;
 
 void setup() {
   OneSheeld.begin();
+  immobRequest.setOnSuccess(&onSuccess);
+  immobRequest.getResponse().setOnJsonResponse(&immobRequestSuccess);
+
   request.addParameter("api_key",myWriteAPIKey);
   pinMode(ledPin, OUTPUT);
+  pinMode(keyPin, INPUT);
+  pinMode(keyLED, OUTPUT);
 }
 
 //when locked LED is lit
@@ -38,35 +46,42 @@ void setup() {
 
 void loop() {
 
-/*
-digitalWrite(ledPin, HIGH);
-delay(3000);
-switchState = digitalRead(2);
-delay(500);
-digitalWrite(ledPin, LOW);
-*/
+
 
 if (stolen)
 {
+  Terminal.println(immob);
   if (immob)
   {
+    digitalWrite(keyLED, HIGH);
+    delay(5000);
+    switchState = digitalRead(2);
+    digitalWrite(keyLED, LOW);
       if(switchState) //This will unlock the immobilizer and the vehicle and perform an update of the location of the vehicle
       {
+        immobOff();
+        /*
         locked = false;
         request.addParameter("field3",0);
         Internet.performPost(request);
         request.deleteParameters(); //Required so as not to update the immobilized value while performing tracking
         request.addParameter("api_key",myWriteAPIKey); //Reapply the api_key to the HttpRequest to be able to write the coordinates while tracking
+        */
       }
   }
   else
   {
-    if(Internet.performGet(immobRequest)) //Checks the value of the immobilizer boolean (0,1) on the thingspeak and simulates the shutdown of the vehicle
+    Internet.performGet(immobRequest);
+    //.println("A");
+    Terminal.println(immob);
+    delay(1000);
+    if(immob) //Checks the value of the immobilizer boolean (0,1) on the thingspeak and simulates the shutdown of the vehicle
     {
+      digitalWrite(ledPin, HIGH);
+      //Terminal.println("B");
       //Simulated shutdown of vehicle and be unable to restart it without the assigned "key" (NFC tag)
     }
     trackVehicle();
-    delay(20000);
   }
   
   
@@ -81,6 +96,10 @@ else if (locked)
   }
   else
   {
+    digitalWrite(keyLED, HIGH);
+    delay(5000);
+    switchState = digitalRead(2);
+    digitalWrite(keyLED, LOW);
     if(switchState)
     {
       locked = false;
@@ -97,15 +116,20 @@ else
   }
   else
   {
+    digitalWrite(keyLED, HIGH);
+    delay(5000);
+    switchState = digitalRead(2);
+    digitalWrite(keyLED, LOW);
     count++;
-    if (count == 3)
+    if (count == autoLockTime)
     {
       locked = true;
       count = 0;
     }
-    if(!locked)
+    else if(switchState)
     {
-      delay(10000);
+      locked = true;
+      count = 0;
     }
   }
 }
@@ -120,6 +144,20 @@ SMS.send("0867897890","Car belonging to XXX has been stolen. It is a blah blah c
 stolen = true;
 } //END OF carStolen()
 
+void immobOff()
+{
+  locked = false;
+  request.deleteParameters();
+  request.addParameter("api_key", myWriteAPIKey);
+  request.addParameter("field3", "0");
+  Internet.performPost(request);
+  delay(1000);
+  immob = 0;
+  request.deleteParameters();
+  request.addParameter("api_key", myWriteAPIKey);
+  delay(20000);
+}
+
 void trackVehicle()
 {
   longitude = GPS.getLongitude();
@@ -129,9 +167,19 @@ void trackVehicle()
   dtostrf(latitude, 10, 6, charSensor);
   request.addParameter("field2", charSensor);
   Internet.performPost(request);
+  delay(20000);
 } //END OF trackVehicle()
 
-void immobRequestSuccess(JsonKeyChain chain , char value[1] )
+void onSuccess(HttpResponse &response)
 {
+  Terminal.println("F");
+  response["field3"].query();
+}
+void immobRequestSuccess(JsonKeyChain &chain , char *value )
+{
+  Terminal.println("D");
+  Terminal.println(value);
+  Terminal.println("E");
   sscanf(value, "%d", &immob);
+  //Terminal.println(immob);
 }
