@@ -6,8 +6,8 @@
 
 #include <OneSheeld.h>
 
-float longitude = GPS.getLongitude();
-float latitude = GPS.getLatitude();
+float longitude;
+float latitude;
 
 HttpRequest immobRequest("https://api.thingspeak.com/channels/228392/fields/3/last.json"); //For checking the immobilization boolean (0,1)
 
@@ -49,12 +49,17 @@ void setup() {
   pinMode(delayRequestPin, OUTPUT);
   pinMode(delayImmobPin, OUTPUT);
   pinMode(keyButPin, INPUT);
+  longitude = GPS.getLongitude();
+  latitude = GPS.getLatitude();
+  delay(5000);
   digitalWrite(lockedPin, HIGH);
 }
 
 
 
 void loop() {
+longitude = GPS.getLongitude();
+latitude = GPS.getLatitude();
 if (stolen)
 {
   if (!immob)
@@ -84,7 +89,7 @@ if (stolen)
 
 else if (locked)
 {
-  if (!GPS.isInRange(latitude, longitude, 20))
+  if (GPS.isInRange(latitude, longitude, 100))
   {
     carStolen();
   }
@@ -103,7 +108,7 @@ else if (locked)
 }
 else
 {
-  if (!GPS.isInRange(latitude, longitude, 20))
+  if (!GPS.isInRange(latitude, longitude, 100))
   {
     moving = true;
     digitalWrite(movingPin, HIGH);
@@ -144,8 +149,8 @@ else
 void carStolen()
 {
 Camera.frontCapture();                                                                                                                        //Take photo of thief
-SMS.send("0861231234","Your car has been stolen. The security company has been informed. You can track your car on our website //hhtp:www");  //Notify car owner
-SMS.send("0867897890","Car belonging to XXX has been stolen. It is a blah blah car.");                                                        // Notify emergency line
+//SMS.send("0876762250","Your car has been stolen. The security company has been informed. You can track your car on our website //hhtp:www");  //Notify car owner
+//SMS.send("0876762250","Car belonging to XXX has been stolen. It is a blah blah car.");                                                        // Notify emergency line
 
 //Stolen is (stolen, locked, moving) = (1,0,1)
 stolen = true;                    //Set stolen variable to true
