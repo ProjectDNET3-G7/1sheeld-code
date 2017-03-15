@@ -11,7 +11,7 @@ float latitude = GPS.getLatitude();
 
 HttpRequest immobRequest("https://api.thingspeak.com/channels/228392/fields/3/last.json"); //For checking the immobilization boolean (0,1)
 oneSheeld.getResponse.setOnJsonResponse(&immobRequestSuccess);
-oneSheeld.getResponse[0][“field3”].query( );
+oneSheeld.getResponse[0]["field3"].query( );
 HttpRequest request("https://api.thingspeak.com/update"); //This and the following 3 lines are for writing the longitude and latitude to thingspeak channel
 const char *myWriteAPIKey = "KY6FGVBF9MNSM8B0";
 char charSensor[11];
@@ -38,11 +38,17 @@ void setup() {
 
 void loop() {
 
-
+/*
+digitalWrite(ledPin, HIGH);
+delay(3000);
+switchState = digitalRead(2);
+delay(500);
+digitalWrite(ledPin, LOW);
+*/
 
 if (stolen)
 {
-  if (Internet.performGet(immobRequest))
+  if (immob)
   {
       if(switchState) //This will unlock the immobilizer and the vehicle and perform an update of the location of the vehicle
       {
@@ -96,6 +102,10 @@ else
     {
       locked = true;
       count = 0;
+    }
+    if(!locked)
+    {
+      delay(10000);
     }
   }
 }
