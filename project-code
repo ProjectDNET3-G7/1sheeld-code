@@ -89,12 +89,17 @@ if (stolen)
 
 else if (locked)
 {
-  if (GPS.isInRange(latitude, longitude, 100))
+  digitalWrite(keyPin, HIGH);
+  delay(5000);
+  switchState = digitalRead(2);
+  digitalWrite(keyPin, LOW);
+  if (switchState)//!GPS.isInRange(latitude, longitude, 100)) //GPS.isInRange does not function as it should, so we replaced it with a button press for the moment.
   {
     carStolen();
   }
   else
   {
+    delay(1000);
     digitalWrite(keyPin, HIGH);
     delay(5000);
     switchState = digitalRead(2);
@@ -108,7 +113,11 @@ else if (locked)
 }
 else
 {
-  if (!GPS.isInRange(latitude, longitude, 100))
+  digitalWrite(keyPin, HIGH);
+  delay(5000);
+  switchState = digitalRead(2);
+  digitalWrite(keyPin, LOW);
+  if (switchState)//!GPS.isInRange(latitude, longitude, 100)) //GPS.isInRange does not function as it should, so we replaced it with a button press for the moment.
   {
     moving = true;
     digitalWrite(movingPin, HIGH);
@@ -116,6 +125,7 @@ else
   }
   else
   {
+    delay(1000);
     digitalWrite(keyPin, HIGH);
     delay(5000);
     switchState = digitalRead(2);
@@ -149,8 +159,8 @@ else
 void carStolen()
 {
 Camera.frontCapture();                                                                                                                        //Take photo of thief
-//SMS.send("0876762250","Your car has been stolen. The security company has been informed. You can track your car on our website //hhtp:www");  //Notify car owner
-//SMS.send("0876762250","Car belonging to XXX has been stolen. It is a blah blah car.");                                                        // Notify emergency line
+SMS.send("0876762250","Your car has been stolen. The security company has been informed. You can track your car on our website //hhtp:www");  //Notify car owner
+SMS.send("0876762250","Car belonging to XXX has been stolen. It is a blah blah car.");                                                        // Notify emergency line
 
 //Stolen is (stolen, locked, moving) = (1,0,1)
 stolen = true;                    //Set stolen variable to true
