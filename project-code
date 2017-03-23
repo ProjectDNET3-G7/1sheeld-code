@@ -3,63 +3,47 @@
 #define INCLUDE_SMS_SHIELD
 #define INCLUDE_INTERNET_SHIELD
 #define INCLUDE_CAMERA_SHIELD
-#define INCLUDE_FACEBOOK_SHIELD
 #define INCLUDE_TWITTER_SHIELD
-#define INCLUDE_PATTERN_SHIELD
+#define INCLUDE_VOICE_RECOGNIZER_SHIELD
+#define INCLUDE_PHONE_SHIELD
 
 #include <OneSheeld.h>
 
 float longitude;
 float latitude;
 
-HttpRequest immobRequest("https://api.thingspeak.com/channels/228392/fields/3/last.json"); //For checking the immobilization boolean (0,1)
+HttpRequest immobRequest("https://api.thingspeak.com/channels/246761/fields/1/last.txt"); //For checking the immobilization boolean (0,1)
+HttpRequest immobSetRequest("https://api.thingspeak.com/update"); //To reset the remote variable upon owner unlocking car
+const char *myImmobKey = "M8A2UQRXB2321QN9"; //API key to write to ThingSpeak
 
 HttpRequest request("https://api.thingspeak.com/update"); //This and the following 3 lines are for writing the longitude and latitude to thingspeak channel
 const char *myWriteAPIKey = "KY6FGVBF9MNSM8B0";
 char charSensor[11];
 
-//boolean stolen = false; //Starts off not stolen (obviously)
-//boolean locked = true; //Vehicle starts off locked as that is the state a vehicle would most often be in
-//boolean moving = false; //Not sure if we care about whether or not the vehicle is moving???
-
-//There is a boolean held on the thingspeak channel that controls the immobilization remotely (simulated remote shutdown)
-
-int stolenPin = 13;
-int lockedPin = 12;
-int movingPin = 11;
-int keyPin = 10;
+int lockedPin = 13;
+int stolenPin = 12;
+int immobilisedPin = 11;
+int unlockedPin = 10;
 
 int delayRequestPin = 7;
-int delayImmobPin = 6;
-
-int keyButPin = 2;
-int switchState = 0;
 
 int count = 0;
 const int autoLockTime = 3;
 int immob = 0;
 
 int state = 0;
-PatternNode oldPattern[] = { {0,0}, {1,1}, {2,2} };
-PatternNode *incomingPattern;
-boolean patternMatch = true;
+const char unlockCommand[] = "unlock";
+boolean voiceInput = false;
 
 void setup() {
   OneSheeld.begin();
   immobRequest.setOnSuccess(&onSuccess);
 
   request.addParameter("api_key", myWriteAPIKey);
-  pinMode(stolenPin, OUTPUT);
-  pinMode(lockedPin, OUTPUT);
-  pinMode(movingPin, OUTPUT);
-  pinMode(keyPin, OUTPUT);
-  pinMode(delayRequestPin, OUTPUT);
-  pinMode(delayImmobPin, OUTPUT);
-  pinMode(keyButPin, INPUT);
-  longitude = GPS.getLongitude();
-  latitude = GPS.getLatitude();
-  delay(5000);
-  digitalWrite(lockedPin, HIGH);
+
+  immobSetRequest.addParameter("api_key", myImmobKey);
+  immobSetRequest.addParameter("field1", "0");
+  VoiceRecognition.start();
 }
 
 
@@ -77,21 +61,16 @@ void loop() {
       immobilised();
       break;
     case 3:
-      moving();
+      unlocked();
       break;
-    case 4:
-      //unlocked();
+    default:
+      locked();
       break;
   }
 }
 
 void locked()
 {
-  /*
-    digitalWrite(keyPin, HIGH);
-    delay(5000);
-    switchState = digitalRead(2);
-    digitalWrite(keyPin, LOW); */
   if (0)//!GPS.isInRange(latitude, longitude, 100))
   {
     state = 1;
@@ -99,30 +78,12 @@ void locked()
   }
   else
   {
-    int  patternLength;
-    if(Pattern.isNewPatternReceived())
+    if(VoiceRecognition.isNewCommandReceived())
     {
-      incomingPattern = Pattern.getLastPattern();
-      patternLength = Pattern.getLastPatternLength();
-    }
-    if(patternLength == 3)
-    {
-      for(int i=0; i < patternLength; i++)
+      if(!strcmp(unlockCommand,VoiceRecognition.getLastCommand()))
       {
-        if(oldPattern[i]==incomingPattern[i] && patternMatch)
-        {
-        }
-        else
-        {
-          patternMatch = false;
-        }
+        state = 3;
       }
-    }
-    if (patternMatch)
-    {
-      state = 4;
-      //locked = false;
-      digitalWrite(lockedPin, LOW);
     }
   }
 }
@@ -134,8 +95,6 @@ void stolen()
   if (immob) //Checks the value of the immobilizer boolean (0,1) on the thingspeak and simulates the shutdown of the vehicle
   {
     state = 2;
-    //locked = true;
-    digitalWrite(lockedPin, HIGH);
     //Simulated shutdown of vehicle and be unable to restart it without the assigned "key" (Button)
   }
   trackVehicle();
@@ -143,51 +102,49 @@ void stolen()
 
 void immobilised()
 {
-  digitalWrite(keyPin, HIGH);
-  delay(5000);
-  switchState = digitalRead(2);
-  digitalWrite(keyPin, LOW);
-  if (switchState) //This will unlock the immobilizer and the vehicle and perform an update of the location of the vehicle
+  if(VoiceRecognition.isNewCommandReceived())
+  {
+    if(!strcmp(unlockCommand,VoiceRecognition.getLastCommand()))
+    {
+      voiceInput = true;
+    }
+  }
+  if(voiceInput)
   {
     state = 0;
+    voiceInput = false;
     immobOff();
   }
 }
 
-void moving()
+void unlocked()
 {
   if (!GPS.isInRange(latitude, longitude, 100)) //GPS.isInRange does not function as it should, so we replaced it with a button press for the moment.
   {
-    //moving = true;
-    digitalWrite(movingPin, HIGH);
     trackVehicle();
   }
   else
   {
-    delay(1000);
-    digitalWrite(keyPin, HIGH);
-    delay(5000);
-    switchState = digitalRead(2);
-    digitalWrite(keyPin, LOW);
+    if(VoiceRecognition.isNewCommandReceived())
+    {
+      if(!strcmp(unlockCommand,VoiceRecognition.getLastCommand()))
+      {
+        voiceInput = true;
+      }
+    }
     count++;
     if (count == autoLockTime)
     {
       state = 0;
-      //locked = true;
-      //moving = false;
-      digitalWrite(lockedPin, HIGH);
-      digitalWrite(movingPin, LOW);
       count = 0;
     }
-    else if (switchState)
+    else if (voiceInput)
     {
       state = 0;
-      //locked = true;
-      //moving = false;
-      digitalWrite(lockedPin, HIGH);
-      digitalWrite(movingPin, LOW);
       count = 0;
+      voiceInput = false;
     }
+    //--------------
     if (!locked)
     {
       delay(10000);
@@ -195,128 +152,22 @@ void moving()
   }
 }
 
-/*
-if (stolen)
-{
-  if (!immob)
-  {
-    Internet.performGet(immobRequest);
-    delay(1000);
-    if (immob) //Checks the value of the immobilizer boolean (0,1) on the thingspeak and simulates the shutdown of the vehicle
-    {
-      locked = true;
-      digitalWrite(lockedPin, HIGH);
-      //Simulated shutdown of vehicle and be unable to restart it without the assigned "key" (Button)
-    }
-    trackVehicle();
-  }
-  else
-  {
-    digitalWrite(keyPin, HIGH);
-    delay(5000);
-    switchState = digitalRead(2);
-    digitalWrite(keyPin, LOW);
-    if (switchState) //This will unlock the immobilizer and the vehicle and perform an update of the location of the vehicle
-    {
-      immobOff();
-    }
-  }
-}
 
-else if (locked)
-{
-  digitalWrite(keyPin, HIGH);
-  delay(5000);
-  switchState = digitalRead(2);
-  digitalWrite(keyPin, LOW);
-  if (switchState)//!GPS.isInRange(latitude, longitude, 100)) //GPS.isInRange does not function as it should, so we replaced it with a button press for the moment.
-  {
-
-    carStolen();
-  }
-  else
-  {
-    delay(1000);
-    digitalWrite(keyPin, HIGH);
-    delay(5000);
-    switchState = digitalRead(2);
-    digitalWrite(keyPin, LOW);
-    if (switchState)
-    {
-      locked = false;
-      digitalWrite(lockedPin, LOW);
-    }
-  }
-}
-else
-{
-  digitalWrite(keyPin, HIGH);
-  delay(5000);
-  switchState = digitalRead(2);
-  digitalWrite(keyPin, LOW);
-  if (switchState)//!GPS.isInRange(latitude, longitude, 100)) //GPS.isInRange does not function as it should, so we replaced it with a button press for the moment.
-  {
-    moving = true;
-    digitalWrite(movingPin, HIGH);
-    trackVehicle();
-  }
-  else
-  {
-    delay(1000);
-    digitalWrite(keyPin, HIGH);
-    delay(5000);
-    switchState = digitalRead(2);
-    digitalWrite(keyPin, LOW);
-    count++;
-    if (count == autoLockTime)
-    {
-      locked = true;
-      moving = false;
-      digitalWrite(lockedPin, HIGH);
-      digitalWrite(movingPin, LOW);
-      count = 0;
-    }
-    else if (switchState)
-    {
-      locked = true;
-      moving = false;
-      digitalWrite(lockedPin, HIGH);
-      digitalWrite(movingPin, LOW);
-      count = 0;
-    }
-    if (!locked)
-    {
-      delay(10000);
-    }
-  }
-}
-
-} //END OF loop()*/
 
 void carStolen()
 {
-  Camera.frontCapture();                                                                                                                        //Take photo of thief
-  SMS.send("0876762250", "Your car has been stolen. The security company has been informed. You can track your car on our website http://websiteURLhere/"); //Notify car owner
-  SMS.send("0876762250", "Car belonging to Mary has been stolen. It is a red VW Golf. Registration is 01 C 12345");                                                       // Notify emergency line
+  Camera.frontCapture();
+  SMS.send("0876762250", "Your car has been stolen. The security company has been informed. You can track your car on our website http://websiteURLhere/");
+  //SMS.send("0876762250", "Car belonging to Mary has been stolen. It is a red VW Golf. Registration is 01 C 12345");
+  Phone.call("0876762250");
   Facebook.postLastPicture("this is the person that stole my car" , FROM_ONESHEELD_FOLDER);
-  Twitter.tweetLastPicture("status to be posted on facebook along the picture" , FROM_ONESHEELD_FOLDER);
+  Twitter.tweetLastPicture("This person stole a red VW Golf. Registration is 01 C 12345." , FROM_ONESHEELD_FOLDER);
 } //END OF carStolen()
 
 void immobOff() //Turn off the immobiliser and update the local and remote immobilise variables
 {
-  //locked = false;                                   //Set locked variable to false
-  //stolen = false;                                   //Set stolen variable to false
-  digitalWrite(stolenPin, LOW);                     //Turn on visual LED for stolen
-  digitalWrite(lockedPin, LOW);                     //Turn on visual LED for locked
-  request.addParameter("field3", "0");              //Add the immobilise variable to request to set remote immobilise variable to 0 while also updating the location
-  Internet.performPost(request);                    //Perform update to Thingspeak site
-  delay(1000);                                      //Short delay to allow request to complete properly as a safeguard
+  Internet.performPost(immobSetRequest);                    //Perform update to Thingspeak site
   immob = 0;                                        //Set local immobilise variable to false
-  request.deleteParameters();                       //Remove all parameters from request so as not to update the remote immobilise variable while updating location in trackVehicle()
-  request.addParameter("api_key", myWriteAPIKey);   //Re-add api key to request
-  digitalWrite(delayImmobPin, HIGH);                //Turn on delay LED to show there is a long delay occuring
-  delay(20000);                                     //20 second delay
-  digitalWrite(delayImmobPin, LOW);                 //Turn off delay LED
 }//END OF immobOff()
 
 void trackVehicle()
@@ -328,9 +179,7 @@ void trackVehicle()
   dtostrf(latitude, 10, 6, charSensor);           //Convert float latitude to char array
   request.addParameter("field2", charSensor);     //Add longitude char array as parameter to the request
   Internet.performPost(request);                  //Perform update to Thinspeak site
-  digitalWrite(delayRequestPin, HIGH);            //Turn on delay LED to show there is a long delay occuring
-  delay(20000);                                   //20 second delay
-  digitalWrite(delayRequestPin, LOW);             //Turn off delay LED
+  delay(20000);
 } //END OF trackVehicle()
 
 void onSuccess(HttpResponse &response)
