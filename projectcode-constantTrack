@@ -1,0 +1,214 @@
+#define CUSTOM_SETTINGS
+#define INCLUDE_CAMERA_SHIELD
+#define INCLUDE_GPS_SHIELD
+#define INCLUDE_INTERNET_SHIELD
+#define INCLUDE_PHONE_SHIELD
+#define INCLUDE_SMS_SHIELD
+#define INCLUDE_TWITTER_SHIELD
+#define INCLUDE_VOICE_RECOGNIZER_SHIELD
+
+#include <OneSheeld.h>
+
+float longitude;
+float latitude;
+
+HttpRequest immobRequest("https://api.thingspeak.com/channels/246761/fields/1/last.txt"); //For checking the immobilization boolean (0,1)
+HttpRequest immobResetRequest("https://api.thingspeak.com/update?api_key=M8A2UQRXB2321QN9&field1=0");
+
+HttpRequest request("https://api.thingspeak.com/update"); //This and the following 3 lines are for writing the longitude and latitude to thingspeak channel
+const char *myWriteAPIKey = "KY6FGVBF9MNSM8B0";
+char charSensor[11];
+
+int lockedPin = 13;
+int stolenPin = 12;
+int immobilisedPin = 11;
+int unlockedPin = 10;
+
+int delayRequestPin = 7;
+
+int count = 0;
+const int autoLockTime = 3;
+int immob = 0;
+
+int state = 0;
+const char unlockCommand[] = "unlock";
+boolean voiceInput = false;
+
+void setup() {
+  OneSheeld.begin();
+  immobRequest.setOnSuccess(&onSuccess);
+  
+  request.addParameter("api_key", myWriteAPIKey);
+  
+  VoiceRecognition.start();
+  pinMode(lockedPin, OUTPUT);
+  pinMode(stolenPin, OUTPUT);
+  pinMode(immobilisedPin, OUTPUT);
+  pinMode(unlockedPin, OUTPUT);
+
+  pinMode(delayRequestPin, OUTPUT);
+}
+
+
+
+void loop() {
+  switch (state)
+  {
+    case 0:
+      digitalWrite(lockedPin, HIGH);
+      digitalWrite(stolenPin, LOW);
+      digitalWrite(immobilisedPin, LOW);
+      digitalWrite(unlockedPin, LOW);
+      locked();
+      break;
+    case 1:
+      digitalWrite(lockedPin, LOW);
+      digitalWrite(stolenPin, HIGH);
+      digitalWrite(immobilisedPin, LOW);
+      digitalWrite(unlockedPin, LOW);
+      stolen();
+      break;
+    case 2:
+      digitalWrite(lockedPin, LOW);
+      digitalWrite(stolenPin, LOW);
+      digitalWrite(immobilisedPin, HIGH);
+      digitalWrite(unlockedPin, LOW);
+      immobilised();
+      break;
+    case 3:
+      digitalWrite(lockedPin, LOW);
+      digitalWrite(stolenPin, LOW);
+      digitalWrite(immobilisedPin, LOW);
+      digitalWrite(unlockedPin, HIGH);
+      unlocked();
+      break;
+    default:
+      digitalWrite(lockedPin, HIGH);
+      digitalWrite(stolenPin, LOW);
+      digitalWrite(immobilisedPin, LOW);
+      digitalWrite(unlockedPin, LOW);
+      locked();
+      break;
+  }
+
+  trackVehicle();
+}
+
+void locked()
+{
+  if (!GPS.isInRange(latitude, longitude, 100))
+  {
+    state = 1;
+    carStolen();
+  }
+  else
+  {
+    if(VoiceRecognition.isNewCommandReceived())
+    {
+      if(!strcmp(unlockCommand,VoiceRecognition.getLastCommand()))
+      {
+        voiceInput = true;
+      }
+    }
+    if(voiceInput)
+    {
+        state = 3;
+        voiceInput = false;
+    }
+  }
+}
+
+void stolen()
+{
+  Internet.performGet(immobRequest);
+  delay(500);
+  if (immob) //Checks the value of the immobilizer boolean (0,1) on the thingspeak and simulates the shutdown of the vehicle
+  {
+    state = 2;
+    //Simulated shutdown of vehicle and be unable to restart it without the assigned "key" (Button)
+  }
+}
+
+void immobilised()
+{
+  if(VoiceRecognition.isNewCommandReceived())
+  {
+    if(!strcmp(unlockCommand,VoiceRecognition.getLastCommand()))
+    {
+      voiceInput = true;
+    }
+  }
+  if(voiceInput)
+  {
+    state = 0;
+    voiceInput = false;
+    immobOff();
+  }
+}
+
+void unlocked()
+{
+  if(VoiceRecognition.isNewCommandReceived())
+  {
+    if(!strcmp(unlockCommand,VoiceRecognition.getLastCommand()))
+    {
+      voiceInput = true;
+    }
+  }
+  count++;
+  if (count == autoLockTime)
+  {
+    state = 0;
+    count = 0;
+  }
+  else if (voiceInput)
+  {
+    state = 0;
+    count = 0;
+    voiceInput = false;
+  }
+}
+
+
+
+void carStolen()
+{
+  Camera.frontCapture();
+  delay(500);
+  SMS.send("0876762250", "Your car has been stolen. The security company has been informed. You can track your car on our website http://websiteURLhere/");
+  delay(500);
+  //SMS.send("0876762250", "Car belonging to Mary has been stolen. It is a red VW Golf. Registration is 01 C 12345");
+  //Facebook.postLastPicture("this is the person that stole my car" , FROM_ONESHEELD_FOLDER);
+  Twitter.tweetLastPicture("This person stole a red VW Golf. Registration is 01 C 12345." , FROM_ONESHEELD_FOLDER);
+  delay(500);
+  Phone.call("0876762250");
+} //END OF carStolen()
+
+void immobOff() //Turn off the immobiliser and update the local and remote immobilise variables
+{
+  Internet.performGet(immobResetRequest);                    //Perform update to Thingspeak site
+  delay(500);
+  immob = 0;                                        //Set local immobilise variable to false
+}//END OF immobOff()
+
+void trackVehicle()
+{
+  digitalWrite(delayRequestPin, HIGH);
+  longitude = GPS.getLongitude();                 //Get Longitude
+  latitude = GPS.getLatitude();                   //Get Latitude
+  dtostrf(longitude, 10, 6, charSensor);          //Convert float longitude to char array
+  request.addParameter("field1", charSensor);     //Add longitude char array as parameter to the request
+  dtostrf(latitude, 10, 6, charSensor);           //Convert float latitude to char array
+  request.addParameter("field2", charSensor);     //Add longitude char array as parameter to the request
+  Internet.performPost(request);                  //Perform update to Thinspeak site
+  delay(20000);
+  digitalWrite(delayRequestPin, LOW);
+} //END OF trackVehicle()
+
+void onSuccess(HttpResponse &response)
+{
+  char *immobTxt = response.getBytes();
+  delay(500);
+  immob = atoi(immobTxt);
+  delay(200);
+}//END OF onSuccess()
