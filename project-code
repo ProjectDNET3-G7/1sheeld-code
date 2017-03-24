@@ -1,11 +1,11 @@
 #define CUSTOM_SETTINGS
-#define INCLUDE_GPS_SHIELD
-#define INCLUDE_SMS_SHIELD
-#define INCLUDE_INTERNET_SHIELD
 #define INCLUDE_CAMERA_SHIELD
+#define INCLUDE_GPS_SHIELD
+#define INCLUDE_INTERNET_SHIELD
+#define INCLUDE_PHONE_SHIELD
+#define INCLUDE_SMS_SHIELD
 #define INCLUDE_TWITTER_SHIELD
 #define INCLUDE_VOICE_RECOGNIZER_SHIELD
-#define INCLUDE_PHONE_SHIELD
 
 #include <OneSheeld.h>
 
@@ -13,8 +13,7 @@ float longitude;
 float latitude;
 
 HttpRequest immobRequest("https://api.thingspeak.com/channels/246761/fields/1/last.txt"); //For checking the immobilization boolean (0,1)
-HttpRequest immobSetRequest("https://api.thingspeak.com/update"); //To reset the remote variable upon owner unlocking car
-const char *myImmobKey = "M8A2UQRXB2321QN9"; //API key to write to ThingSpeak
+HttpRequest immobResetRequest("https://api.thingspeak.com/update?api_key=M8A2UQRXB2321QN9&field1=0");
 
 HttpRequest request("https://api.thingspeak.com/update"); //This and the following 3 lines are for writing the longitude and latitude to thingspeak channel
 const char *myWriteAPIKey = "KY6FGVBF9MNSM8B0";
@@ -38,12 +37,16 @@ boolean voiceInput = false;
 void setup() {
   OneSheeld.begin();
   immobRequest.setOnSuccess(&onSuccess);
-
+  
   request.addParameter("api_key", myWriteAPIKey);
-
-  immobSetRequest.addParameter("api_key", myImmobKey);
-  immobSetRequest.addParameter("field1", "0");
+  
   VoiceRecognition.start();
+  pinMode(lockedPin, OUTPUT);
+  pinMode(stolenPin, OUTPUT);
+  pinMode(immobilisedPin, OUTPUT);
+  pinMode(unlockedPin, OUTPUT);
+
+  pinMode(delayRequestPin, OUTPUT);
 }
 
 
@@ -52,18 +55,38 @@ void loop() {
   switch (state)
   {
     case 0:
+      digitalWrite(lockedPin, HIGH);
+      digitalWrite(stolenPin, LOW);
+      digitalWrite(immobilisedPin, LOW);
+      digitalWrite(unlockedPin, LOW);
       locked();
       break;
     case 1:
+      digitalWrite(lockedPin, LOW);
+      digitalWrite(stolenPin, HIGH);
+      digitalWrite(immobilisedPin, LOW);
+      digitalWrite(unlockedPin, LOW);
       stolen();
       break;
     case 2:
+      digitalWrite(lockedPin, LOW);
+      digitalWrite(stolenPin, LOW);
+      digitalWrite(immobilisedPin, HIGH);
+      digitalWrite(unlockedPin, LOW);
       immobilised();
       break;
     case 3:
+      digitalWrite(lockedPin, LOW);
+      digitalWrite(stolenPin, LOW);
+      digitalWrite(immobilisedPin, LOW);
+      digitalWrite(unlockedPin, HIGH);
       unlocked();
       break;
     default:
+      digitalWrite(lockedPin, HIGH);
+      digitalWrite(stolenPin, LOW);
+      digitalWrite(immobilisedPin, LOW);
+      digitalWrite(unlockedPin, LOW);
       locked();
       break;
   }
@@ -71,7 +94,7 @@ void loop() {
 
 void locked()
 {
-  if (0)//!GPS.isInRange(latitude, longitude, 100))
+  if (!GPS.isInRange(latitude, longitude, 100))
   {
     state = 1;
     carStolen();
@@ -82,8 +105,13 @@ void locked()
     {
       if(!strcmp(unlockCommand,VoiceRecognition.getLastCommand()))
       {
-        state = 3;
+        voiceInput = true;
       }
+    }
+    if(voiceInput)
+    {
+        state = 3;
+        voiceInput = false;
     }
   }
 }
@@ -160,13 +188,13 @@ void carStolen()
   SMS.send("0876762250", "Your car has been stolen. The security company has been informed. You can track your car on our website http://websiteURLhere/");
   //SMS.send("0876762250", "Car belonging to Mary has been stolen. It is a red VW Golf. Registration is 01 C 12345");
   Phone.call("0876762250");
-  Facebook.postLastPicture("this is the person that stole my car" , FROM_ONESHEELD_FOLDER);
+  //Facebook.postLastPicture("this is the person that stole my car" , FROM_ONESHEELD_FOLDER);
   Twitter.tweetLastPicture("This person stole a red VW Golf. Registration is 01 C 12345." , FROM_ONESHEELD_FOLDER);
 } //END OF carStolen()
 
 void immobOff() //Turn off the immobiliser and update the local and remote immobilise variables
 {
-  Internet.performPost(immobSetRequest);                    //Perform update to Thingspeak site
+  Internet.performGet(immobResetRequest);                    //Perform update to Thingspeak site
   immob = 0;                                        //Set local immobilise variable to false
 }//END OF immobOff()
 
