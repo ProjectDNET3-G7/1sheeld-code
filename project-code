@@ -200,6 +200,7 @@ void immobOff() //Turn off the immobiliser and update the local and remote immob
 
 void trackVehicle()
 {
+  digitalWrite(delayRequestPin, HIGH);
   longitude = GPS.getLongitude();                 //Get Longitude
   latitude = GPS.getLatitude();                   //Get Latitude
   dtostrf(longitude, 10, 6, charSensor);          //Convert float longitude to char array
@@ -208,6 +209,7 @@ void trackVehicle()
   request.addParameter("field2", charSensor);     //Add longitude char array as parameter to the request
   Internet.performPost(request);                  //Perform update to Thinspeak site
   delay(20000);
+  digitalWrite(delayRequestPin, LOW);
 } //END OF trackVehicle()
 
 void onSuccess(HttpResponse &response)
